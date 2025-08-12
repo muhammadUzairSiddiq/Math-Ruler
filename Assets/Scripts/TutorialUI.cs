@@ -62,10 +62,11 @@ public class TutorialUI : MonoBehaviour
         // Setup button listeners
         SetupButtonListeners();
         
-        // Initially hide tutorial panel
+        // Keep tutorial panel active by default - don't hide it
         if (tutorialPanel != null)
         {
-            tutorialPanel.SetActive(false);
+            tutorialPanel.SetActive(true);
+            Debug.Log("✅ Tutorial Panel kept active by default");
         }
         
         Debug.Log("Tutorial UI initialized");
@@ -326,6 +327,21 @@ public class TutorialUI : MonoBehaviour
         Debug.Log("=== HIDING TUTORIAL UI ===");
         HideTutorial();
         Debug.Log("Tutorial should now be hidden!");
+    }
+    
+    [ContextMenu("🔓 Force Activate Tutorial Panel")]
+    void ForceActivateTutorialPanel()
+    {
+        Debug.Log("=== FORCE ACTIVATING TUTORIAL PANEL ===");
+        if (tutorialPanel != null)
+        {
+            tutorialPanel.SetActive(true);
+            Debug.Log("✅ Tutorial Panel force activated!");
+        }
+        else
+        {
+            Debug.LogError("❌ Tutorial Panel not assigned!");
+        }
     }
     
     [ContextMenu("🎯 Test Visual Focus System")]

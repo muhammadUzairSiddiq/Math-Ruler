@@ -27,4 +27,16 @@ public class SceneChanger : MonoBehaviour
         // Load scene
         SceneManager.LoadScene("MobileGame");
     }
+    public void GotoAR_PracticeScene()
+    {
+
+        // Load scene
+        SceneManager.LoadScene("PracticeGame");
+    }
+    public void Goto_Exit()
+    {
+
+        // Quit Game
+        Application.Quit();
+    }
 }
