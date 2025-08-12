@@ -514,6 +514,11 @@ public class ARNumberLineGenerator : MonoBehaviour
         return isNumberLineVisible;
     }
     
+    public bool IsNumberLinePlaced()
+    {
+        return isInitialized && numberCubes.Count > 0;
+    }
+    
     public int GetPlayerCurrentNumber()
     {
         return currentCenterNumber;

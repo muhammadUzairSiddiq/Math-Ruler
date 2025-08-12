@@ -229,7 +229,7 @@ public class ARPlayerController : MonoBehaviour
         }
     }
     
-    void OnPlayerEnteredCube(int cubeNumber)
+    public void OnPlayerEnteredCube(int cubeNumber)
     {
         currentCubeNumber = cubeNumber;
         
@@ -242,7 +242,7 @@ public class ARPlayerController : MonoBehaviour
         DisplayCurrentCubeNumber(cubeNumber);
     }
     
-    void OnPlayerExitedCube()
+    public void OnPlayerExitedCube()
     {
         currentCubeNumber = -999; // Not on any cube
         
@@ -281,6 +281,11 @@ public class ARPlayerController : MonoBehaviour
     public int GetCurrentNumber()
     {
         return currentNumber;
+    }
+    
+    public int GetCurrentCubeNumber()
+    {
+        return currentCubeNumber;
     }
     
     public bool IsMoving()
@@ -394,6 +399,84 @@ public class ARPlayerController : MonoBehaviour
         }
         
         Debug.Log("\n=== COMPLETE MOVEMENT SYSTEM TEST FINISHED ===");
+    }
+    
+    [ContextMenu("Test Cube Detection System")]
+    public void TestCubeDetectionSystem()
+    {
+        Debug.Log("=== TESTING CUBE DETECTION SYSTEM ===");
+        
+        // Test entering different cubes
+        int[] testCubes = { -5, 0, 5, 10 };
+        
+        foreach (int cubeNumber in testCubes)
+        {
+            Debug.Log($"\n--- Testing cube {cubeNumber} ---");
+            
+            // Simulate entering cube
+            OnPlayerEnteredCube(cubeNumber);
+            
+            // Verify state
+            Debug.Log($"   Current Cube Number: {currentCubeNumber}");
+            Debug.Log($"   Expected: {cubeNumber}");
+            Debug.Log($"   Status: {(currentCubeNumber == cubeNumber ? "✅ PASS" : "❌ FAIL")}");
+            
+            // Wait a moment
+            System.Threading.Thread.Sleep(100);
+        }
+        
+        // Test exiting cube
+        Debug.Log($"\n--- Testing cube exit ---");
+        OnPlayerExitedCube();
+        Debug.Log($"   Current Cube Number: {currentCubeNumber}");
+        Debug.Log($"   Expected: -999 (not on any cube)");
+        Debug.Log($"   Status: {(currentCubeNumber == -999 ? "✅ PASS" : "❌ FAIL")}");
+        
+        Debug.Log("=== CUBE DETECTION TEST COMPLETE ===");
+    }
+    
+    [ContextMenu("Test Reward Positioning Readiness")]
+    public void TestRewardPositioningReadiness()
+    {
+        Debug.Log("=== TESTING REWARD POSITIONING READINESS ===");
+        
+        // Test all the methods that reward spawning will use
+        Debug.Log("Testing methods used by reward positioning system:");
+        
+        // Test GetCurrentNumber
+        int currentNum = GetCurrentNumber();
+        Debug.Log($"✅ GetCurrentNumber(): {currentNum}");
+        
+        // Test GetCurrentCubeNumber
+        int currentCube = GetCurrentCubeNumber();
+        Debug.Log($"✅ GetCurrentCubeNumber(): {currentCube}");
+        
+        // Test GetPlayerPosition
+        Vector3 playerPos = GetPlayerPosition();
+        Debug.Log($"✅ GetPlayerPosition(): {playerPos}");
+        
+        // Test camera position (used by reward spawning)
+        Vector3 cameraPos = Camera.main.transform.position;
+        Debug.Log($"✅ Camera Position: {cameraPos}");
+        
+        // Test if we're ready for reward positioning
+        bool readyForRewards = (numberLineGenerator != null && 
+                               numberLineGenerator.IsNumberLinePlaced() && 
+                               currentCube != -999);
+        
+        Debug.Log($"🎯 Ready for reward positioning: {(readyForRewards ? "YES" : "NO")}");
+        
+        if (!readyForRewards)
+        {
+            if (numberLineGenerator == null)
+                Debug.LogWarning("   ❌ Number Line Generator missing");
+            if (!numberLineGenerator.IsNumberLinePlaced())
+                Debug.LogWarning("   ❌ Number line not placed yet");
+            if (currentCube == -999)
+                Debug.LogWarning("   ❌ Player not on any cube");
+        }
+        
+        Debug.Log("=== REWARD POSITIONING READINESS TEST COMPLETE ===");
     }
 
     [ContextMenu("Test Player Movement")]

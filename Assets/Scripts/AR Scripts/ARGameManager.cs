@@ -217,15 +217,8 @@ public class ARGameManager : MonoBehaviour
         if (isCorrect)
         {
             // Place reward in AR space
-            if (numberLineManager != null && answerVerifier != null)
-            {
-                int correctAnswer = answerVerifier.correctAnswer;
-                GameObject rewardPrefab = GetRewardPrefab();
-                if (rewardPrefab != null)
-                {
-                    numberLineManager.PlaceRewardAtNumber(correctAnswer, rewardPrefab);
-                }
-            }
+            // AR rewards are now activated as children of cube prefabs - no need to place them
+            Debug.Log("AR reward will be activated when player clicks reward button");
             
             // Play success sound
             if (audioManager != null)

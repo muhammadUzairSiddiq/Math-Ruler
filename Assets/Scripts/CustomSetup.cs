@@ -28,6 +28,9 @@ public class CustomSetup : MonoBehaviour
     public GameObject carPrefab;
     public GameObject treePrefab;
     
+    [Header("AR Reward Prefabs")]
+    // AR rewards are now children of cube prefabs - no prefab fields needed
+    
     [Header("Reward Buttons")]
     public Button houseRewardButton;
     public Button petRewardButton;
@@ -365,6 +368,8 @@ public class CustomSetup : MonoBehaviour
             answerVerifier.carPrefab = carPrefab;
             answerVerifier.treePrefab = treePrefab;
             
+            // AR reward prefabs are now children of cube prefabs - no assignment needed
+            
             // CRITICAL: Assign reward buttons to AnswerVerifier
             answerVerifier.houseRewardButton = houseRewardButton;
             answerVerifier.petRewardButton = petRewardButton;
@@ -518,7 +523,7 @@ public class CustomSetup : MonoBehaviour
     
     void FindRewardPrefabs()
     {
-        // Try to find prefabs by name in Resources folder or Assets
+        // Try to find mobile prefabs by name in Resources folder or Assets
         if (housePrefab == null)
         {
             housePrefab = FindPrefabByName("house");
@@ -546,6 +551,8 @@ public class CustomSetup : MonoBehaviour
             if (treePrefab != null)
                 Debug.Log($"Found tree prefab: {treePrefab.name}");
         }
+        
+        // AR rewards are now children of cube prefabs - no need to find AR prefabs
     }
     
     GameObject FindPrefabByName(string name)
@@ -562,6 +569,11 @@ public class CustomSetup : MonoBehaviour
         
         // Try to find prefab in Assets/Prefabs/Reward Objects folder
         prefab = Resources.Load<GameObject>($"Prefabs/Reward Objects/{name}");
+        if (prefab != null)
+            return prefab;
+        
+        // Try to find prefab in Assets/Prefabs/Reward Objects/AR Rewards folder
+        prefab = Resources.Load<GameObject>($"Prefabs/Reward Objects/AR Rewards/{name}");
         if (prefab != null)
             return prefab;
         

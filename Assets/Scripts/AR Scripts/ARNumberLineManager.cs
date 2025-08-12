@@ -28,6 +28,7 @@ public class ARNumberLineManager : MonoBehaviour
     [Header("AR Components")]
     public ARPlaneManager planeManager;
     public ARSessionOrigin sessionOrigin;
+    public ARPlayerController arPlayerController;
     
     [Header("Debug")]
     public bool showDebugInfo = true;
@@ -59,6 +60,7 @@ public class ARNumberLineManager : MonoBehaviour
         // Find AR components
         if (planeManager == null) planeManager = FindObjectOfType<ARPlaneManager>();
         if (sessionOrigin == null) sessionOrigin = FindObjectOfType<ARSessionOrigin>();
+        if (arPlayerController == null) arPlayerController = FindObjectOfType<ARPlayerController>();
         arCamera = Camera.main;
         
         // Create number line parent
@@ -291,19 +293,7 @@ public class ARNumberLineManager : MonoBehaviour
         return number;
     }
     
-    public void PlaceRewardAtNumber(int number, GameObject rewardPrefab)
-    {
-        if (numberCubes.ContainsKey(number))
-        {
-            Vector3 cubePosition = numberCubes[number].transform.position;
-            Vector3 rewardPosition = cubePosition + Vector3.up * (cubeScale * 0.8f);
-            
-            GameObject reward = Instantiate(rewardPrefab, rewardPosition, Quaternion.identity);
-            reward.transform.SetParent(numberCubes[number].transform);
-            
-            Debug.Log($"Placed reward at number {number}");
-        }
-    }
+    // PlaceRewardAtNumber method removed - rewards are now activated as children of cube prefabs
     
     public bool IsNumberLinePlaced()
     {
@@ -345,6 +335,88 @@ public class ARNumberLineManager : MonoBehaviour
     {
         UpdatePlayerPosition(-5);
     }
-}
-
-// Billboard component moved to ARNumberLineGenerator.cs to avoid duplication
+    
+    [ContextMenu("Test Reward Positioning System")]
+    public void TestRewardPositioningSystem()
+    {
+        Debug.Log("=== TESTING REWARD POSITIONING SYSTEM ===");
+        
+        if (!isNumberLinePlaced)
+        {
+            Debug.LogError("❌ Number line not placed yet! Wait for floor detection.");
+            return;
+        }
+        
+        if (arPlayerController == null)
+        {
+            Debug.LogError("❌ AR Player Controller not found!");
+            return;
+        }
+        
+        // Test reward positioning for different scenarios
+        Debug.Log("Testing reward positioning scenarios:");
+        
+        // Scenario 1: Player on cube 0
+        Debug.Log($"\n--- Scenario 1: Player on cube 0 ---");
+        TestRewardPositioning(0);
+        
+        // Scenario 2: Player on cube 5
+        Debug.Log($"\n--- Scenario 2: Player on cube 5 ---");
+        TestRewardPositioning(5);
+        
+        // Scenario 3: Player not on any cube
+        Debug.Log($"\n--- Scenario 3: Player not on any cube ---");
+        TestRewardPositioning(-999);
+        
+        Debug.Log("=== REWARD POSITIONING SYSTEM TEST COMPLETE ===");
+    }
+    
+    void TestRewardPositioning(int playerCubeNumber)
+    {
+        // Simulate player being on this cube
+        if (playerCubeNumber != -999)
+        {
+            arPlayerController.OnPlayerEnteredCube(playerCubeNumber);
+        }
+        else
+        {
+            arPlayerController.OnPlayerExitedCube();
+        }
+        
+        // Get current state
+        int currentCube = arPlayerController.GetCurrentCubeNumber();
+        Vector3 playerPosition = Camera.main.transform.position;
+        
+        Debug.Log($"   Player Cube Number: {currentCube}");
+        Debug.Log($"   Player Position: {playerPosition}");
+        
+        // Test reward positioning logic
+        if (numberCubes.ContainsKey(5)) // Use cube 5 as test target
+        {
+            GameObject testCube = numberCubes[5];
+            Vector3 cubePosition = testCube.transform.position;
+            
+            // Calculate expected spawn position
+            Vector3 expectedPosition;
+            if (currentCube == 5)
+            {
+                expectedPosition = cubePosition + Vector3.up * (cubeScale * 0.8f);
+                Debug.Log($"   ✅ Player on target cube - Reward will spawn ON TOP at: {expectedPosition}");
+            }
+            else
+            {
+                expectedPosition = playerPosition + Vector3.forward * 2f;
+                Debug.Log($"   ⚠️ Player not on target cube - Reward will spawn at PLAYER POSITION: {expectedPosition}");
+            }
+            
+            Debug.Log($"   Target Cube Position: {cubePosition}");
+            Debug.Log($"   Expected Reward Position: {expectedPosition}");
+        }
+                 else
+         {
+             Debug.LogWarning("   Test cube 5 not found!");
+         }
+     }
+ }
+ 
+ // Billboard component moved to ARNumberLineGenerator.cs to avoid duplication
