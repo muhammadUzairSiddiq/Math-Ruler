@@ -47,6 +47,14 @@ public class ARNumberLineGenerator : MonoBehaviour
     public bool autoShowOnFloorDetection = true;
     public float placementHeight = 0.02f; // Increased height
     
+    [Header("Improved Placement")]
+    public float maxDistanceFromUser = 3.0f; // Maximum distance from user for placement
+    public float preferredDistanceFromUser = 1.5f; // Preferred distance from user
+    public float directionConsistencyWeight = 0.3f; // Weight for direction consistency
+    public float proximityWeight = 0.4f; // Weight for proximity to user
+    public float sizeWeight = 0.3f; // Weight for plane size
+    public Vector3 preferredDirection = Vector3.forward; // Preferred forward direction for consistency
+    
     [Header("Debug")]
     public bool showDebugInfo = true;
     public int currentCenterNumber = 0;
@@ -80,6 +88,23 @@ public class ARNumberLineGenerator : MonoBehaviour
         }
         // OnScreenConsole removed - using CubePositionUI instead
         InitializeNumberLine();
+        
+        // Update preferred direction based on user's initial orientation
+        UpdatePreferredDirection();
+    }
+    
+    void UpdatePreferredDirection()
+    {
+        if (Camera.main != null)
+        {
+            // Use camera's forward direction as preferred direction
+            Vector3 cameraForward = Camera.main.transform.forward;
+            cameraForward.y = 0; // Keep it horizontal
+            cameraForward.Normalize();
+            
+            preferredDirection = cameraForward;
+            Debug.Log($"Updated preferred direction to: {preferredDirection}");
+        }
     }
     
     void InitializeNumberLine()
@@ -431,10 +456,41 @@ public class ARNumberLineGenerator : MonoBehaviour
         // Check if plane is too small
         if (plane.size.x < 1.0f || plane.size.y < 1.0f) return 0f;
         
-        // Calculate score based on size (prefer larger planes)
-        float sizeScore = Mathf.Min(plane.size.x, plane.size.y) / 1.0f;
+        // Get user position (camera position in AR)
+        Vector3 userPosition = Camera.main.transform.position;
+        Vector3 planeCenter = plane.center;
         
-        return sizeScore;
+        // Calculate distance from user
+        float distanceFromUser = Vector3.Distance(userPosition, planeCenter);
+        
+        // Reject planes that are too far from user
+        if (distanceFromUser > maxDistanceFromUser) return 0f;
+        
+        // Calculate proximity score (closer is better)
+        float proximityScore = 1f - Mathf.Clamp01(distanceFromUser / maxDistanceFromUser);
+        
+        // Calculate direction consistency score
+        float directionScore = 0f;
+        if (plane.normal.y > 0.8f) // Only consider relatively flat planes
+        {
+            // Calculate how well the plane aligns with preferred direction
+            Vector3 planeForward = Vector3.Cross(plane.normal, Vector3.up);
+            float alignment = Vector3.Dot(planeForward, preferredDirection);
+            directionScore = (alignment + 1f) * 0.5f; // Convert from [-1,1] to [0,1]
+        }
+        
+        // Calculate size score (larger is better)
+        float sizeScore = Mathf.Min(plane.size.x, plane.size.y) / 1.0f;
+        sizeScore = Mathf.Clamp01(sizeScore / 5f); // Normalize to reasonable range
+        
+        // Calculate weighted final score
+        float finalScore = (proximityScore * proximityWeight) + 
+                          (directionScore * directionConsistencyWeight) + 
+                          (sizeScore * sizeWeight);
+        
+        Debug.Log($"Plane {plane.trackableId} scoring - Distance: {distanceFromUser:F2}, Proximity: {proximityScore:F2}, Direction: {directionScore:F2}, Size: {sizeScore:F2}, Final: {finalScore:F2}");
+        
+        return finalScore;
     }
     
     void PlaceNumberLineOnPlane(ARPlane plane)
@@ -448,6 +504,26 @@ public class ARNumberLineGenerator : MonoBehaviour
         
         // Calculate placement position
         Vector3 placementPosition = plane.center + (plane.normal * placementHeight);
+        
+        // Adjust position to be closer to user while staying on the plane
+        Vector3 userPosition = Camera.main.transform.position;
+        Vector3 userToPlane = plane.center - userPosition;
+        userToPlane.y = 0; // Keep on same Y level
+        
+        // If plane is too far, move it closer to user (but still on the plane)
+        float currentDistance = Vector3.Distance(userPosition, plane.center);
+        if (currentDistance > preferredDistanceFromUser)
+        {
+            Vector3 directionToUser = userToPlane.normalized;
+            float moveDistance = currentDistance - preferredDistanceFromUser;
+            Vector3 adjustedPosition = plane.center - (directionToUser * moveDistance);
+            
+            // Ensure the adjusted position is still on the plane
+            adjustedPosition.y = plane.center.y + placementHeight;
+            placementPosition = adjustedPosition;
+            
+            Debug.Log($"Adjusted placement from {plane.center} to {placementPosition} to be closer to user");
+        }
         
         // Position the number line generator
         transform.position = placementPosition;
@@ -743,6 +819,46 @@ public class ARNumberLineGenerator : MonoBehaviour
     {
         Debug.Log("Player exited cube");
         OnPlayerExitedCube?.Invoke();
+    }
+
+    [ContextMenu("Test Improved Placement")]
+    public void TestImprovedPlacement()
+    {
+        Debug.Log("=== TESTING IMPROVED PLACEMENT SYSTEM ===");
+        
+        if (isNumberLineVisible)
+        {
+            Debug.Log("Number line already visible. Hide first to test again.");
+            return;
+        }
+        
+        // Update preferred direction
+        UpdatePreferredDirection();
+        
+        // Find and evaluate planes
+        ARPlane bestPlane = FindBestPlane();
+        if (bestPlane != null)
+        {
+            Debug.Log($"Testing placement on plane: {bestPlane.trackableId}");
+            PlaceNumberLineOnPlane(bestPlane);
+        }
+        else
+        {
+            Debug.LogWarning("No suitable plane found for testing");
+        }
+    }
+
+    [ContextMenu("Show Placement Settings")]
+    public void ShowPlacementSettings()
+    {
+        Debug.Log("=== CURRENT PLACEMENT SETTINGS ===");
+        Debug.Log($"Max Distance from User: {maxDistanceFromUser}");
+        Debug.Log($"Preferred Distance from User: {preferredDistanceFromUser}");
+        Debug.Log($"Direction Consistency Weight: {directionConsistencyWeight}");
+        Debug.Log($"Proximity Weight: {proximityWeight}");
+        Debug.Log($"Size Weight: {sizeWeight}");
+        Debug.Log($"Preferred Direction: {preferredDirection}");
+        Debug.Log($"Placement Height: {placementHeight}");
     }
 }
 

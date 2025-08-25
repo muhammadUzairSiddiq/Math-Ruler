@@ -25,6 +25,14 @@ public class ARPlacementManager : MonoBehaviour
     public float placementHeight = 0.02f; // Small offset above surface
     public float minPlaneSize = 1.0f; // Minimum plane size for placement
     
+    [Header("Improved Placement")]
+    public float maxDistanceFromUser = 3.0f; // Maximum distance from user for placement
+    public float preferredDistanceFromUser = 1.5f; // Preferred distance from user
+    public float directionConsistencyWeight = 0.3f; // Weight for direction consistency
+    public float proximityWeight = 0.4f; // Weight for proximity to user
+    public float sizeWeight = 0.3f; // Weight for plane size
+    public Vector3 preferredDirection = Vector3.forward; // Preferred forward direction for consistency
+    
     [Header("UI Integration")]
     public GameObject placementUI;
     public bool hidePlacementUI = true;
@@ -40,6 +48,23 @@ public class ARPlacementManager : MonoBehaviour
         
         // Hide placement UI immediately
         Invoke("HideARPlacementUI", 0.1f);
+        
+        // Update preferred direction based on user's initial orientation
+        UpdatePreferredDirection();
+    }
+    
+    void UpdatePreferredDirection()
+    {
+        if (Camera.main != null)
+        {
+            // Use camera's forward direction as preferred direction
+            Vector3 cameraForward = Camera.main.transform.forward;
+            cameraForward.y = 0; // Keep it horizontal
+            cameraForward.Normalize();
+            
+            preferredDirection = cameraForward;
+            Debug.Log($"Updated preferred direction to: {preferredDirection}");
+        }
     }
     
     void InitializePlacement()
@@ -160,83 +185,136 @@ public class ARPlacementManager : MonoBehaviour
 
     void HideARPlacementUI()
     {
-        Debug.Log("Hiding placement UI");
-        
-        // Find and hide ONLY AR Foundation placement UI elements (be more specific)
-        Canvas[] canvases = FindObjectsOfType<Canvas>();
-        foreach (Canvas canvas in canvases)
+        if (hidePlacementUI && placementUI != null)
         {
-            Transform[] children = canvas.GetComponentsInChildren<Transform>();
-            foreach (Transform child in children)
-            {
-                // Only hide specific AR Foundation placement UI elements, not general UI
-                if (child.name.Contains("Tap to Place") || child.name.Contains("AR Placement") || 
-                    child.name.Contains("AR Instruction") || child.name.Contains("AR Foundation") ||
-                    child.name.Contains("Placement UI") || child.name.Contains("AR UI"))
-                {
-                    child.gameObject.SetActive(false);
-                    Debug.Log($"Hidden AR placement UI: {child.name}");
-                }
-            }
+            placementUI.SetActive(false);
+            Debug.Log("AR Placement UI hidden");
+        }
+    }
+
+    [ContextMenu("Test Improved Placement")]
+    public void TestImprovedPlacement()
+    {
+        Debug.Log("=== TESTING IMPROVED PLACEMENT SYSTEM ===");
+        
+        if (isPlaced)
+        {
+            Debug.Log("Number line already placed. Reset first to test again.");
+            return;
         }
         
-        // Also hide any UI elements with specific AR Foundation text
-        GameObject[] allObjects = FindObjectsOfType<GameObject>();
-        foreach (GameObject obj in allObjects)
+        // Update preferred direction
+        UpdatePreferredDirection();
+        
+        // Find and evaluate planes
+        ARPlane bestPlane = FindBestPlane();
+        if (bestPlane != null)
         {
-            var textComponent = obj.GetComponent<UnityEngine.UI.Text>();
-            if (textComponent != null)
-            {
-                string text = textComponent.text.ToLower();
-                if (text.Contains("tap to place") || text.Contains("touch surfaces") ||
-                    text.Contains("ar foundation") || text.Contains("placement"))
-                {
-                    obj.SetActive(false);
-                    Debug.Log($"Hidden AR text UI: {obj.name} - '{textComponent.text}'");
-                }
-            }
+            Debug.Log($"Testing placement on plane: {bestPlane.trackableId}");
+            PlaceNumberLineOnPlane(bestPlane);
         }
+        else
+        {
+            Debug.LogWarning("No suitable plane found for testing");
+        }
+    }
+
+    [ContextMenu("Reset Placement")]
+    public void ResetPlacement()
+    {
+        Debug.Log("=== RESETTING PLACEMENT ===");
+        
+        isPlaced = false;
+        if (placedNumberLine != null)
+        {
+            DestroyImmediate(placedNumberLine);
+            placedNumberLine = null;
+        }
+        
+        if (numberLineGenerator != null)
+        {
+            numberLineGenerator.transform.position = Vector3.zero;
+        }
+        
+        Debug.Log("Placement reset complete");
+    }
+
+    [ContextMenu("Show Placement Settings")]
+    public void ShowPlacementSettings()
+    {
+        Debug.Log("=== CURRENT PLACEMENT SETTINGS ===");
+        Debug.Log($"Max Distance from User: {maxDistanceFromUser}");
+        Debug.Log($"Preferred Distance from User: {preferredDistanceFromUser}");
+        Debug.Log($"Direction Consistency Weight: {directionConsistencyWeight}");
+        Debug.Log($"Proximity Weight: {proximityWeight}");
+        Debug.Log($"Size Weight: {sizeWeight}");
+        Debug.Log($"Preferred Direction: {preferredDirection}");
+        Debug.Log($"Min Plane Size: {minPlaneSize}");
+        Debug.Log($"Placement Height: {placementHeight}");
     }
     
     void OnPlanesChanged(ARPlanesChangedEventArgs args)
     {
+        if (!autoPlaceOnDetection || isPlaced) return;
+        
         Debug.Log($"Planes changed - Added: {args.added.Count}, Updated: {args.updated.Count}, Removed: {args.removed.Count}");
         
-        if (autoPlaceOnDetection && !isPlaced)
+        // Find the best plane for placement
+        ARPlane bestPlane = FindBestPlane();
+        if (bestPlane != null)
         {
-            // Find the best plane for placement
-            ARPlane bestPlane = FindBestPlane();
-            if (bestPlane != null)
-            {
-                Debug.Log($"Best plane found: {bestPlane.trackableId} at {bestPlane.center} with size {bestPlane.size}");
-                PlaceNumberLineOnPlane(bestPlane);
-            }
+            Debug.Log($"Found best plane: {bestPlane.trackableId} at {bestPlane.center}");
+            PlaceNumberLineOnPlane(bestPlane);
+        }
+        else
+        {
+            Debug.Log("No suitable plane found for placement");
         }
     }
     
     ARPlane FindBestPlane()
     {
         if (planeManager == null) return null;
+        
         ARPlane bestPlane = null;
         float bestScore = 0f;
+        int totalPlanes = 0;
+        int rejectedPlanes = 0;
+        
+        Debug.Log("=== EVALUATING PLANES FOR PLACEMENT ===");
+        
         foreach (var plane in planeManager.trackables)
         {
-            // Only consider horizontal planes (normal close to Vector3.up)
-            float angle = Vector3.Angle(plane.normal, Vector3.up);
-            if (angle > 10f) continue; // Not flat enough
-            // Set plane mesh/line renderer to red for debugging
-            var meshRenderer = plane.GetComponent<MeshRenderer>();
-            if (meshRenderer != null) meshRenderer.material.color = Color.red;
-            var lineRenderer = plane.GetComponent<LineRenderer>();
-            if (lineRenderer != null) lineRenderer.material.color = Color.red;
+            totalPlanes++;
             float score = CalculatePlaneScore(plane);
-            Debug.Log($"Plane {plane.trackableId} score: {score} (size: {plane.size}, angle: {angle})");
-            if (score > bestScore)
+            
+            if (score > 0)
             {
-                bestScore = score;
-                bestPlane = plane;
+                Debug.Log($"Plane {plane.trackableId}: Score = {score:F3}");
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestPlane = plane;
+                }
+            }
+            else
+            {
+                rejectedPlanes++;
+                Debug.Log($"Plane {plane.trackableId}: Rejected (Score = 0)");
             }
         }
+        
+        Debug.Log($"Plane evaluation complete: {totalPlanes} total, {rejectedPlanes} rejected, {totalPlanes - rejectedPlanes} considered");
+        
+        if (bestPlane != null)
+        {
+            Debug.Log($"✅ Best plane selected: {bestPlane.trackableId} with score {bestScore:F3}");
+        }
+        else
+        {
+            Debug.LogWarning("❌ No suitable plane found for placement");
+        }
+        
         return bestPlane;
     }
     // TODO: Before placing the number line, raycast upwards from each intended cube position to check for obstacles (shelves, walls).
@@ -248,11 +326,41 @@ public class ARPlacementManager : MonoBehaviour
         // Check if plane is too small
         if (plane.size.x < minPlaneSize || plane.size.y < minPlaneSize) return 0f;
         
-        // Calculate score based on size (prefer larger planes)
-        float sizeScore = Mathf.Min(plane.size.x, plane.size.y) / minPlaneSize;
+        // Get user position (camera position in AR)
+        Vector3 userPosition = Camera.main.transform.position;
+        Vector3 planeCenter = plane.center;
         
-        // Prefer larger planes
-        return sizeScore;
+        // Calculate distance from user
+        float distanceFromUser = Vector3.Distance(userPosition, planeCenter);
+        
+        // Reject planes that are too far from user
+        if (distanceFromUser > maxDistanceFromUser) return 0f;
+        
+        // Calculate proximity score (closer is better)
+        float proximityScore = 1f - Mathf.Clamp01(distanceFromUser / maxDistanceFromUser);
+        
+        // Calculate direction consistency score
+        float directionScore = 0f;
+        if (plane.normal.y > 0.8f) // Only consider relatively flat planes
+        {
+            // Calculate how well the plane aligns with preferred direction
+            Vector3 planeForward = Vector3.Cross(plane.normal, Vector3.up);
+            float alignment = Vector3.Dot(planeForward, preferredDirection);
+            directionScore = (alignment + 1f) * 0.5f; // Convert from [-1,1] to [0,1]
+        }
+        
+        // Calculate size score (larger is better)
+        float sizeScore = Mathf.Min(plane.size.x, plane.size.y) / minPlaneSize;
+        sizeScore = Mathf.Clamp01(sizeScore / 5f); // Normalize to reasonable range
+        
+        // Calculate weighted final score
+        float finalScore = (proximityScore * proximityWeight) + 
+                          (directionScore * directionConsistencyWeight) + 
+                          (sizeScore * sizeWeight);
+        
+        Debug.Log($"Plane {plane.trackableId} scoring - Distance: {distanceFromUser:F2}, Proximity: {proximityScore:F2}, Direction: {directionScore:F2}, Size: {sizeScore:F2}, Final: {finalScore:F2}");
+        
+        return finalScore;
     }
     
     void PlaceNumberLineOnPlane(ARPlane plane)
@@ -285,6 +393,26 @@ public class ARPlacementManager : MonoBehaviour
         // Calculate placement position
         Vector3 placementPosition = plane.center;
         placementPosition.y += placementHeight; // Small offset above surface
+        
+        // Adjust position to be closer to user while staying on the plane
+        Vector3 userPosition = Camera.main.transform.position;
+        Vector3 userToPlane = plane.center - userPosition;
+        userToPlane.y = 0; // Keep on same Y level
+        
+        // If plane is too far, move it closer to user (but still on the plane)
+        float currentDistance = Vector3.Distance(userPosition, plane.center);
+        if (currentDistance > preferredDistanceFromUser)
+        {
+            Vector3 directionToUser = userToPlane.normalized;
+            float moveDistance = currentDistance - preferredDistanceFromUser;
+            Vector3 adjustedPosition = plane.center - (directionToUser * moveDistance);
+            
+            // Ensure the adjusted position is still on the plane
+            adjustedPosition.y = plane.center.y + placementHeight;
+            placementPosition = adjustedPosition;
+            
+            Debug.Log($"Adjusted placement from {plane.center} to {placementPosition} to be closer to user");
+        }
         
         // Generate the number line
         if (numberLineGenerator != null)
