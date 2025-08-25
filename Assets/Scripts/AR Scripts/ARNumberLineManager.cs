@@ -3,6 +3,7 @@ using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using System.Collections.Generic;
 using TMPro;
+using UnityEngine.UI; // Added for Canvas, CanvasScaler, GraphicRaycaster
 
 public class ARNumberLineManager : MonoBehaviour
 {
@@ -216,15 +217,52 @@ public class ARNumberLineManager : MonoBehaviour
         textGO.transform.localPosition = Vector3.up * (cubeScale * 0.6f);
         textGO.transform.localRotation = Quaternion.identity;
         
-        // Add TextMeshPro component
-        TextMeshPro textMesh = textGO.AddComponent<TextMeshPro>();
-        textMesh.text = number.ToString();
-        textMesh.fontSize = 0.5f;
-        textMesh.color = Color.white;
-        textMesh.alignment = TextAlignmentOptions.Center;
+        // Add Canvas for world space UI
+        Canvas canvas = textGO.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.worldCamera = Camera.main;
         
-        // Make text always face camera
-        textGO.AddComponent<Billboard>();
+        // Add CanvasScaler
+        CanvasScaler scaler = textGO.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        
+        // Add GraphicRaycaster
+        textGO.AddComponent<GraphicRaycaster>();
+        
+        // Create background circle for better text visibility
+        GameObject backgroundObject = new GameObject("Background");
+        backgroundObject.transform.SetParent(textGO.transform);
+        backgroundObject.transform.localPosition = Vector3.zero;
+        backgroundObject.transform.localScale = Vector3.one * 1.2f; // Slightly larger than text
+        
+        // Add Image component for background
+        UnityEngine.UI.Image backgroundImage = backgroundObject.AddComponent<UnityEngine.UI.Image>();
+        backgroundImage.color = new Color(1f, 1f, 1f, 0.8f); // Semi-transparent white
+        
+        // Set background size
+        RectTransform bgRectTransform = backgroundObject.GetComponent<RectTransform>();
+        bgRectTransform.sizeDelta = new Vector2(1.2f, 1.2f);
+        bgRectTransform.anchoredPosition = Vector2.zero;
+        
+        // Add TextMeshProUGUI component (correct for Canvas)
+        TMPro.TextMeshProUGUI textMesh = textGO.AddComponent<TMPro.TextMeshProUGUI>();
+        textMesh.text = number.ToString();
+        textMesh.fontSize = 0.25f;
+        textMesh.color = Color.black;
+        textMesh.alignment = TMPro.TextAlignmentOptions.Center;
+        textMesh.fontStyle = TMPro.FontStyles.Bold;
+        
+        // Add text outline for better visibility
+        textMesh.outlineWidth = 0.1f;
+        textMesh.outlineColor = Color.white;
+        
+        // Set text object size
+        RectTransform textRectTransform = textMesh.GetComponent<RectTransform>();
+        if (textRectTransform != null)
+        {
+            textRectTransform.sizeDelta = new Vector2(1f, 1f);
+        }
     }
     
     public void UpdatePlayerPosition(int playerNumber)

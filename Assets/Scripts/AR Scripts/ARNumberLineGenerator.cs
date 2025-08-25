@@ -225,22 +225,45 @@ public class ARNumberLineGenerator : MonoBehaviour
             scaler.referenceResolution = new Vector2(1920, 1080);
             // Add GraphicRaycaster
             textObject.AddComponent<GraphicRaycaster>();
+            
+            // Create background circle for better text visibility
+            GameObject backgroundObject = new GameObject("Background");
+            backgroundObject.transform.SetParent(textObject.transform);
+            backgroundObject.transform.localPosition = Vector3.zero;
+            backgroundObject.transform.localScale = Vector3.one * 1.2f; // Slightly larger than text
+            
+            // Add Image component for background
+            UnityEngine.UI.Image backgroundImage = backgroundObject.AddComponent<UnityEngine.UI.Image>();
+            backgroundImage.color = new Color(1f, 1f, 1f, 0.8f); // Semi-transparent white
+            
+            // Set background size
+            RectTransform bgRectTransform = backgroundObject.GetComponent<RectTransform>();
+            bgRectTransform.sizeDelta = new Vector2(1.2f, 1.2f);
+            bgRectTransform.anchoredPosition = Vector2.zero;
+            
             // Create text component
             textComponent = textObject.AddComponent<TMPro.TextMeshProUGUI>();
         }
-        // Configure text component
+        
+        // Configure text component with enhanced styling
         textComponent.text = number.ToString();
         textComponent.color = Color.black;
         textComponent.alignment = TMPro.TextAlignmentOptions.Center;
         textComponent.fontStyle = TMPro.FontStyles.Bold;
-        // Set text object size (do not scale down)
+        textComponent.fontSize = 0.25f; // Smaller font size for better readability
+        
+        // Add text outline for better visibility
+        textComponent.outlineWidth = 0.1f;
+        textComponent.outlineColor = Color.white;
+        
+        // Set text object size
         RectTransform rectTransform = textComponent.GetComponent<RectTransform>();
         if (rectTransform != null)
         {
             rectTransform.sizeDelta = new Vector2(1f, 1f);
-            // rectTransform.localScale = Vector3.one * 0.1f; // REMOVED: do not scale down
         }
-        Debug.Log($"Set up text for cube {number}: '{textComponent.text}'");
+        
+        Debug.Log($"Set up enhanced text with background for cube {number}: '{textComponent.text}'");
     }
 
     // Method to get the current scale for UI display
