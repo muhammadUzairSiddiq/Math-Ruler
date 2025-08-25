@@ -30,9 +30,9 @@ public class PracticeGameManager : MonoBehaviour
     
     [Header("Practice Mode Features")]
     public bool unlimitedAttempts = true;
-    public bool showHints = true;
+    public bool showAnswers = true;
     public bool showAnswerAfterWrong = false;
-    public int maxHintsPerQuestion = 3;
+    public int maxAnswersPerQuestion = 3;
     
     [System.Serializable]
     public class TutorialStep
@@ -142,7 +142,7 @@ public class PracticeGameManager : MonoBehaviour
         tutorialSteps.Add(new TutorialStep
         {
             title = "Practice Features",
-            description = "• Unlimited attempts - try as many times as you want\n• Hints available - get help when you're stuck\n• No pressure - this is just for learning",
+            description = "• Unlimited attempts - try as many times as you want\n• Answers available - get the exact answer when you're stuck\n• No pressure - this is just for learning",
             requiresAction = false
         });
         
@@ -257,42 +257,47 @@ public class PracticeGameManager : MonoBehaviour
     // Practice mode specific methods
     public void ShowHint()
     {
-        if (!showHints) return;
+        if (!showAnswers) return;
         
         // Get current equation info from AnswerVerifier
         if (answerVerifier != null)
         {
-            string hint = GenerateHint(answerVerifier.firstNumber, answerVerifier.secondNumber, answerVerifier.GetOperator());
-            ShowHintMessage(hint);
+            string answer = GenerateExactAnswer(answerVerifier.firstNumber, answerVerifier.secondNumber, answerVerifier.GetOperator());
+            ShowHintMessage(answer);
         }
     }
     
-    string GenerateHint(int first, int second, string op)
+    string GenerateExactAnswer(int first, int second, string op)
     {
+        int result = 0;
         switch (op)
         {
             case "+":
-                return $"Hint: {first} + {second} = ?\nThink: Start with {first}, then count up {second} more!";
+                result = first + second;
+                return $"The answer is {first} + {second} = {result}";
             case "-":
-                return $"Hint: {first} - {second} = ?\nThink: Start with {first}, then count down {second}!";
+                result = first - second;
+                return $"The answer is {first} - {second} = {result}";
             case "*":
-                return $"Hint: {first} × {second} = ?\nThink: {first} groups of {second}!";
+                result = first * second;
+                return $"The answer is {first} × {second} = {result}";
             case "/":
-                return $"Hint: {first} ÷ {second} = ?\nThink: How many {second}s make {first}?";
+                result = first / second;
+                return $"The answer is {first} ÷ {second} = {result}";
             default:
-                return "Hint: Read the equation carefully and think about what operation to use!";
+                return "The answer is: Check the equation and operation!";
         }
     }
     
-    void ShowHintMessage(string hint)
+    void ShowHintMessage(string answer)
     {
-        // You can implement this to show hints in the UI
-        Debug.Log($"Showing hint: {hint}");
+        // You can implement this to show answers in the UI
+        Debug.Log($"Showing answer: {answer}");
         
         // For now, just log it. You can add UI elements later
         if (uiManager != null)
         {
-            // uiManager.ShowHint(hint);
+            // uiManager.ShowHint(answer);
         }
     }
     
@@ -351,12 +356,12 @@ public class PracticeGameManager : MonoBehaviour
         Debug.Log("Tutorial completed - check that tutorial panel is hidden!");
     }
     
-    [ContextMenu("Show Hint")]
-    void TestShowHint()
+    [ContextMenu("Show Answer")]
+    void TestShowAnswer()
     {
-        Debug.Log("=== TESTING HINT SYSTEM ===");
+        Debug.Log("=== TESTING ANSWER SYSTEM ===");
         ShowHint();
-        Debug.Log("Hint should be displayed in console!");
+        Debug.Log("Answer should be displayed in console!");
     }
     
     // Auto-assignment context menus

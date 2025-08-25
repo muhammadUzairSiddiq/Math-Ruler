@@ -14,6 +14,10 @@ public class AIAssistant : MonoBehaviour
     [Header("Timing Settings")]
     public float thinkingThreshold = 7f; // Seconds before showing 'need help?' message
 
+    [Header("Help System")]
+    public bool showHintFirst = true; // Show hint first, then answer on second click
+    private bool hasShownHint = false; // Track if hint was shown for current equation
+
     [Header("Message Pools")]
     [TextArea]
     public List<string> motivationalMessages = new List<string>{
@@ -43,11 +47,11 @@ public class AIAssistant : MonoBehaviour
     };
     [TextArea]
     public List<string> thinkingMessages = new List<string>{
-        "Need a hint?",
+        "Need a hint or the answer?",
         "It's okay to take your time!",
         "Are you still thinking?",
         "If you need help, just ask!",
-        "Stuck? The help button is here!",
+        "Stuck? Click help for a hint, click again for the answer!",
         "Take a deep breath and try!"
     };
 
@@ -84,6 +88,7 @@ public class AIAssistant : MonoBehaviour
     {
         timeSinceEquation = 0f;
         waitingForAnswer = true;
+        hasShownHint = false; // Reset hint state for new equation
         if (explanationTypewriter != null)
             explanationTypewriter.SetInstant("");
         else if (explanationText != null)
@@ -105,10 +110,60 @@ public class AIAssistant : MonoBehaviour
     void OnHelpButtonPressed()
     {
         if (answerVerifier == null) return;
+        
         var eq = answerVerifier.GetCurrentEquation();
-        string msg = $"The answer is {eq.first} {answerVerifier.GetOperator()} {eq.second} = {eq.correct}. Try to understand how it works!";
-        PlayTypewriterExplanation(msg);
-        waitingForAnswer = false;
+        
+        if (showHintFirst && !hasShownHint)
+        {
+            // Show hint first
+            string hint = GenerateContextualHint(eq.first, eq.second, answerVerifier.GetOperator());
+            PlayTypewriterExplanation(hint);
+            hasShownHint = true;
+            
+            // Update button text to indicate next click will show answer
+            if (helpButton != null)
+            {
+                TextMeshProUGUI buttonText = helpButton.GetComponentInChildren<TextMeshProUGUI>();
+                if (buttonText != null)
+                {
+                    buttonText.text = "Show Answer";
+                }
+            }
+        }
+        else
+        {
+            // Show exact answer
+            string msg = $"The answer is {eq.first} {answerVerifier.GetOperator()} {eq.second} = {eq.correct}";
+            PlayTypewriterExplanation(msg);
+            waitingForAnswer = false;
+            
+            // Reset button text for next equation
+            if (helpButton != null)
+            {
+                TextMeshProUGUI buttonText = helpButton.GetComponentInChildren<TextMeshProUGUI>();
+                if (buttonText != null)
+                {
+                    buttonText.text = "Help";
+                }
+            }
+        }
+    }
+
+    string GenerateContextualHint(int first, int second, string op)
+    {
+        switch (op)
+        {
+            case "+":
+                return $"Hint: Start on number {first}, then take {second} steps to the RIGHT. This will help you find the answer!";
+            case "-":
+                return $"Hint: Start on number {first}, then take {second} steps to the LEFT. This will help you find the answer!";
+            case "*":
+                return $"Hint: Start on number {first}, then take {second} groups of {first} steps to the RIGHT. This will help you find the answer!";
+            case "/":
+                return $"Hint: Start on number {first}, then find how many groups of {second} make {first}. This will help you find the answer!";
+            default:
+                return "Hint: Read the equation carefully and think about what operation to use!";
+        }
     }
 
     string GetRandomMessage(List<string> pool)
@@ -149,6 +204,122 @@ public class AIAssistant : MonoBehaviour
         }
         if (explanationText != null && explanationTypewriter == null)
             explanationTypewriter = explanationText.GetComponent<TypewriterEffect>();
+    }
+
+    [ContextMenu("Test Hint System")]
+    public void TestHintSystem()
+    {
+        Debug.Log("=== TESTING HINT SYSTEM ===");
+        
+        // Simulate a new equation
+        hasShownHint = false;
+        
+        // Test hint generation
+        string hint = GenerateContextualHint(5, 3, "+");
+        Debug.Log($"Generated hint: {hint}");
+        
+        // Test button text update
+        if (helpButton != null)
+        {
+            TextMeshProUGUI buttonText = helpButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                buttonText.text = "Show Answer";
+                Debug.Log("Button text updated to: Show Answer");
+            }
+        }
+        
+        Debug.Log("Hint system test complete!");
+    }
+
+    [ContextMenu("Test Answer System")]
+    public void TestAnswerSystem()
+    {
+        Debug.Log("=== TESTING ANSWER SYSTEM ===");
+        
+        // Simulate showing answer
+        hasShownHint = true;
+        
+        // Test answer generation
+        string answer = "The answer is 5 + 3 = 8";
+        Debug.Log($"Generated answer: {answer}");
+        
+        // Test button text reset
+        if (helpButton != null)
+        {
+            TextMeshProUGUI buttonText = helpButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                buttonText.text = "Help";
+                Debug.Log("Button text reset to: Help");
+            }
+        }
+        
+        Debug.Log("Answer system test complete!");
+    }
+
+    [ContextMenu("Toggle Hint System")]
+    public void ToggleHintSystem()
+    {
+        showHintFirst = !showHintFirst;
+        Debug.Log($"Hint system {(showHintFirst ? "ENABLED" : "DISABLED")}. Help button will now show {(showHintFirst ? "hint first, then answer" : "answer directly")}.");
+    }
+
+    [ContextMenu("Reset Help Button")]
+    public void ResetHelpButton()
+    {
+        hasShownHint = false;
+        if (helpButton != null)
+        {
+            TextMeshProUGUI buttonText = helpButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                buttonText.text = "Help";
+                Debug.Log("Help button reset to: Help");
+            }
+        }
+    }
+
+    // Public method to force show hint (useful for external calls)
+    public void ForceShowHint()
+    {
+        if (answerVerifier == null) return;
+        
+        var eq = answerVerifier.GetCurrentEquation();
+        string hint = GenerateContextualHint(eq.first, eq.second, answerVerifier.GetOperator());
+        PlayTypewriterExplanation(hint);
+        hasShownHint = true;
+        
+        // Update button text
+        if (helpButton != null)
+        {
+            TextMeshProUGUI buttonText = helpButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                buttonText.text = "Show Answer";
+            }
+        }
+    }
+
+    // Public method to force show answer (useful for external calls)
+    public void ForceShowAnswer()
+    {
+        if (answerVerifier == null) return;
+        
+        var eq = answerVerifier.GetCurrentEquation();
+        string msg = $"The answer is {eq.first} {answerVerifier.GetOperator()} {eq.second} = {eq.correct}";
+        PlayTypewriterExplanation(msg);
+        waitingForAnswer = false;
+        
+        // Reset button text
+        if (helpButton != null)
+        {
+            TextMeshProUGUI buttonText = helpButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                buttonText.text = "Help";
+            }
+        }
     }
 }
 
